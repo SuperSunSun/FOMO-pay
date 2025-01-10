@@ -40,19 +40,6 @@ public class FomoPayService {
      */
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
-//    @PostConstruct
-//    public void init() {
-//        scheduler.scheduleAtFixedRate(this::checkPendingPayments, 0, 3, TimeUnit.SECONDS);
-//    }
-
-    /**
-     * 服务销毁时清理资源
-     */
-    @PreDestroy
-    public void cleanup() {
-        scheduler.shutdown();
-    }
-
 
     @Autowired
     private FomoPayUtil fomoPayUtil;
@@ -138,22 +125,6 @@ public class FomoPayService {
         return sb.toString();
     }
 
-    /**
-     * 获取查询请求的HTTP头信息
-     *
-     * @return 包含认证信息的HTTP头Map
-     */
-    private static Map<String, String> getHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Content-Type", "application/json");
-        headers.put("X-Authentication-Version", "1.1");
-        headers.put("X-Authentication-Method", "SHA256WithRSA");
-        headers.put("X-Authentication-KeyId", "your_key_id");
-        headers.put("X-Authentication-Nonce", "your_nonce");
-        headers.put("X-Authentication-Timestamp", "your_timestamp");
-        headers.put("X-Authentication-Sign", "your_signature");
-        return headers;
-    }
 
     /**
      * 生成查询请求体
@@ -180,62 +151,6 @@ public class FomoPayService {
     }
 
     /**
-     * 发送查询请求到FOMO Pay API
-     *
-     * @param stan 系统跟踪审计号
-     * @return API响应内容
-     * @throws RuntimeException 当请求失败时抛出
-     */
-    private String sendQueryRequest(int stan) {
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpPost httpPost = new HttpPost(API_URL);
-
-            // 设置 Headers
-            Map<String, String> headers = getHeaders();
-            for (Map.Entry<String, String> entry : headers.entrySet()) {
-                httpPost.setHeader(entry.getKey(), entry.getValue());
-            }
-
-            // 设置 Body
-            String requestBody = getQueryRequestBody(stan);
-            httpPost.setEntity(new StringEntity(requestBody));
-
-            // 发送请求
-            HttpResponse response = httpClient.execute(httpPost);
-            return EntityUtils.toString(response.getEntity());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to send query request", e);
-        }
-    }
-
-    /**
-     * 解析查询响应
-     *
-     * @param responseBody API返回的响应体
-     * @throws RuntimeException 当解析失败时抛出
-     */
-    private void parseQueryResponse(String responseBody) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-
-            String responseCode = (String) responseMap.get("39");
-            String errorMessage = (String) responseMap.get("113");
-
-            if ("00".equals(responseCode)) {
-                System.out.println("交易支付成功！");
-            } else {
-                System.out.println("交易支付失败，响应代码：" + responseCode);
-                if (errorMessage != null) {
-                    System.out.println("错误消息：" + hexToString(errorMessage));
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse query response", e);
-        }
-    }
-
-    /**
      * 处理退款请求
      *
      * @param stan   系统跟踪审计号（6位数字）
@@ -243,11 +158,10 @@ public class FomoPayService {
      * @return 退款处理结果，包含状态码和错误信息（如果有）
      * @throws RuntimeException 当退款处理失败时抛出
      */
-    public String processRefund(String stan, long amount, String retrievalRef, String description) {
+    public String reversal(String stan, long amount, String retrievalRef, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
-            PublicKey publicKey = fomoPayUtil.loadPublicKey("public_key.pem");
 
             // 2. 构建退款请求
             ObjectMapper objectMapper = new ObjectMapper();
@@ -297,7 +211,7 @@ public class FomoPayService {
             headers.put("X-Authentication-Sign", signature);
             headers.put("Content-Type", "application/json");
 
-            String response = fomoPayUtil.sendHttpPostRequest("https://pos.fomopay.net/rpc", payload, headers);
+            String response = fomoPayUtil.sendHttpPostRequest(API_URL, payload, headers);
 
             // 5. 处理响应
             if (response == null || response.isEmpty()) {
@@ -323,31 +237,10 @@ public class FomoPayService {
             return "Error: " + e.getMessage();
         }
     }
-    /**
-     * 待处理支付集合
-     */
-    private final Set<String> pendingPayments = new HashSet<>();
+
 
     /**
-     * 添加待处理支付
-     *
-     * @param transactionId 交易ID
-     */
-    public void addPendingPayment(String transactionId) {
-        pendingPayments.add(transactionId);
-    }
-
-    /**
-     * 获取所有待处理支付
-     *
-     * @return 待处理支付列表的字符串表示
-     */
-    public String getPendingPayments() {
-        return "Pending payments:\n" + pendingPayments.toString();
-    }
-
-    /**
-     * 测试FOMO Pay集成
+     * 销售
      * <p>
      * 该方法执行以下操作：
      * 1. 加载加密密钥
@@ -357,8 +250,11 @@ public class FomoPayService {
      *
      * @return 测试结果，包含API响应和验证状态
      * @throws RuntimeException 当测试失败时抛出
+     * @param stan
+     * @param amount
+     * @param description
      */
-    public String payIntegration() {
+    public String sale(int stan, int amount, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
@@ -368,30 +264,13 @@ public class FomoPayService {
             ObjectMapper objectMapper = new ObjectMapper();
             ObjectNode requestBody = objectMapper.createObjectNode();
             // 根据发送的字段计算位图——位图计算遵循FOMO PayAPI规范
-            /**
-             * 杂项映射计算现在使用以下字段:
-             3(处理代码)
-             7(传输日期和时间)
-             11(系统跟踪审计号码)
-             12(本地交易时间)
-             13(本地交易日期)
-             18(商户类型)
-             25(服务点条件代码)
-             41(终端ID)
-             42(商户ID)
-             49(货币代码)
-             88(借记总金额)
-             104(交易描述)
-             */
             String bitmap = calculateBitmap(new int[]{3, 7, 11, 12, 13, 18, 25, 41, 42, 49, 88, 104});
 
             requestBody.put("0", "0200"); // Message type identifier
             requestBody.put("1", bitmap); // 计算图
             requestBody.put("3", "000000"); // 交易处理码
             requestBody.put("7", "1231235959"); // 发送日期和时间
-            // Generate unique STAN number
-            long stanNumber = System.currentTimeMillis() % 1000000;
-            requestBody.put("11", String.format("%06d", stanNumber)); // 系统跟踪审计编号
+            requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计编号
             requestBody.put("12", "235959"); // 本地交易时间
             requestBody.put("13", "1231"); // 本地交易日期
             requestBody.put("18", "0005"); // 商户类型
@@ -399,8 +278,9 @@ public class FomoPayService {
             requestBody.put("41", TID); // 终端ID
             requestBody.put("42", MID); // 商户ID
             requestBody.put("49", "SGD"); // 货币代码
-            requestBody.put("88", "000000000001"); // 借记总金额
-            requestBody.put("104", "order number:A0000"); // 交易描述
+            String formattedAmount = String.format("%012d", amount);
+            requestBody.put("88", formattedAmount); // 借记总金额
+            requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
             System.out.println("payload===" + payload);
@@ -486,5 +366,13 @@ public class FomoPayService {
             e.printStackTrace();
             return "Error: " + e.getMessage();
         }
+    }
+
+    /**
+     * 结算
+     * @return
+     */
+    public String batchSubmit() {
+        return null;
     }
 }
