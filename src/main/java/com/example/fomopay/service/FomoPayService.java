@@ -64,54 +64,6 @@ public class FomoPayService {
      */
     private static final String API_URL = "https://pos.fomopay.net/rpc";
 
-    /**
-     * 计算位图
-     *
-     * @param fields 需要包含在bitmap中的字段编号数组
-     * @return 计算后的16进制位图字符串
-     */
-    private String calculateBitmap(int[] fields) {
-        // Create primary and secondary bitmaps
-        boolean[] primary = new boolean[64];
-        boolean[] secondary = new boolean[64];
-
-        // Set bits for each field
-        for (int field : fields) {
-            if (field <= 64) {
-                primary[field - 1] = true;
-            } else {
-                secondary[field - 65] = true;
-                primary[0] = true; // Set first bit to indicate secondary bitmap exists
-            }
-        }
-
-        // Convert primary bitmap to hex
-        StringBuilder primaryHex = new StringBuilder();
-        for (int i = 0; i < 64; i += 4) {
-            int nibble = 0;
-            for (int j = 0; j < 4; j++) {
-                if (primary[i + j]) {
-                    nibble |= (1 << (3 - j));
-                }
-            }
-            primaryHex.append(Integer.toHexString(nibble));
-        }
-
-        // Convert secondary bitmap to hex
-        StringBuilder secondaryHex = new StringBuilder();
-        for (int i = 0; i < 64; i += 4) {
-            int nibble = 0;
-            for (int j = 0; j < 4; j++) {
-                if (secondary[i + j]) {
-                    nibble |= (1 << (3 - j));
-                }
-            }
-            secondaryHex.append(Integer.toHexString(nibble));
-        }
-
-        // Combine primary and secondary bitmaps
-        return primaryHex.toString() + secondaryHex.toString();
-    }
 
     /**
      * 将16进制字符串转换为可读文本
@@ -160,7 +112,7 @@ public class FomoPayService {
             ObjectNode requestBody = objectMapper.createObjectNode();
 
             // 计算位图 (包含字段 0,1,3,7,11,41,42)
-            String bitmap = calculateBitmap(new int[]{3, 7, 11, 41, 42});
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 41, 42});
 
             // 获取当前时间
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
@@ -175,7 +127,6 @@ public class FomoPayService {
             requestBody.put("42", MID); // 商户 ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            //System.out.println("Request Payload: " + payload);
 
             // 4. 生成签名
             long timestamp = System.currentTimeMillis() / 1000;
@@ -245,19 +196,27 @@ public class FomoPayService {
             // 2. 构建退款请求
             ObjectMapper objectMapper = new ObjectMapper();
             ObjectNode requestBody = objectMapper.createObjectNode();
-            String bitmap = calculateBitmap(new int[]{3, 7, 11, 12, 13, 37, 41, 42, 89, 104});
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 37, 41, 42, 89, 104});
 
             requestBody.put("0", "0400"); // Message type identifier
             requestBody.put("1", bitmap); // 计算图
             requestBody.put("3", "000000"); // 退款处理码
-            requestBody.put("7", "1231235959"); // 发送日期和时间
+            // 获取当前时间并格式化
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
+            String transmissionDateTime = dateFormat.format(new Date());
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+            String localTime = timeFormat.format(new Date());
+            SimpleDateFormat dateOnlyFormat = new SimpleDateFormat("MMdd");
+            String localDate = dateOnlyFormat.format(new Date());
+
+            requestBody.put("7", transmissionDateTime); // 发送日期和时间
             // 验证stan是否为6位数字
             if (stan == null || !stan.matches("\\d{6}")) {
                 throw new IllegalArgumentException("STAN must be a 6-digit number");
             }
             requestBody.put("11", stan); // 系统跟踪审计号
-            requestBody.put("12", "235959"); // 本地交易时间
-            requestBody.put("13", "1231"); // 本地交易日期
+            requestBody.put("12", localTime); // 本地交易时间
+            requestBody.put("13", localDate); // 本地交易日期
             requestBody.put("37", retrievalRef); // 交易的检索参考码
             requestBody.put("41", TID); // 终端ID
             requestBody.put("42", MID); // 商户ID
@@ -278,7 +237,6 @@ public class FomoPayService {
             String nonce = formattedTimestamp;
 
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
-
             // 4. 发送退款请求
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
@@ -361,7 +319,6 @@ public class FomoPayService {
             requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            //System.out.println("payload=="+payload);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
@@ -471,7 +428,6 @@ public class FomoPayService {
             requestBody.put("42", MID); // 商户ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            //System.out.println("payload===" + payload);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
@@ -479,10 +435,8 @@ public class FomoPayService {
             String nonce = formattedTimestamp; // Use formatted timestamp as nonce
 
             String dataToSign = payload + timestamp + nonce + privateKey;
-            //System.out.println("dataToSign=="+dataToSign);
             // 4. 对请求进行签名
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
-            //System.out.println("signature==="+signature);
             // 5. 发送 HTTP POST 请求
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
