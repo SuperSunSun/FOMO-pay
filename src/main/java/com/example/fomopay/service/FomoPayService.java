@@ -343,7 +343,7 @@ public class FomoPayService {
             ObjectMapper objectMapper = new ObjectMapper();
             ObjectNode requestBody = objectMapper.createObjectNode();
             // 根据发送的字段计算位图——位图计算遵循FOMO PayAPI规范
-            String bitmap = calculateBitmap(new int[]{3, 7, 11, 12, 13, 18, 25, 41, 42, 49, 88, 104});
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 18, 25, 41, 42, 49, 88, 104});
 
             requestBody.put("0", "0200"); // Message type identifier
             requestBody.put("1", bitmap); // 计算图
@@ -362,7 +362,7 @@ public class FomoPayService {
             requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
-
+            System.out.println("payload=="+payload);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")

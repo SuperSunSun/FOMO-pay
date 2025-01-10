@@ -371,55 +371,49 @@ public class FomoPayUtil {
     }
 
     /**
-     * 计算 Bitmap 值
+     * 通用的位图计算方法
      *
-     * @param fieldNumbers 包含的字段编号数组，例如 {3, 7, 41, 42}
-     * @return 计算后的 Bitmap 的十六进制表示
+     * @param fields 存在的字段编号（例如：{3, 7, 11, 12, 13, 18, 25, 41, 42, 49, 54, 62, 88, 104}）
+     * @return 位图（十六进制字符串）
      */
-    public static String calculateBitmap(int[] fieldNumbers) {
-        // 初始化主 Bitmap（64 位）
-        BitSet primaryBitmap = new BitSet(64);
+    public String calculateBitmap(int[] fields) {
+        // 初始化位图（128 位，支持主位图和次位图）
+        boolean[] bitmap = new boolean[128];
 
-        // 遍历字段编号，将对应位设置为 1
-        for (int field : fieldNumbers) {
-            if (field > 64) {
-                throw new IllegalArgumentException("Field number exceeds 64. Secondary bitmap not implemented.");
-            }
-            primaryBitmap.set(field - 1); // 字段编号从 1 开始，BitSet 从 0 开始
-        }
-
-        // 将 BitSet 转换为 16 字节（64 位）的十六进制字符串
-        return bitSetToHex(primaryBitmap, 64);
-    }
-
-    /**
-     * 将 BitSet 转换为固定长度的十六进制字符串
-     *
-     * @param bitSet 要转换的 BitSet
-     * @param bitLength 指定的位数长度（64 位）
-     * @return 十六进制表示
-     */
-    private static String bitSetToHex(BitSet bitSet, int bitLength) {
-        // 初始化字节数组，确保每 8 位占用一个字节
-        byte[] bytes = new byte[(bitLength + 7) / 8];
-        for (int i = 0; i < bitLength; i++) {
-            if (bitSet.get(i)) {
-                bytes[i / 8] |= (1 << (7 - (i % 8))); // 高位在前
+        // 设置存在的字段对应的位
+        for (int field : fields) {
+            if (field > 1 && field <= 128) {
+                bitmap[field - 1] = true; // 字段编号从 1 开始，位图索引从 0 开始
             }
         }
 
-        // 转换为十六进制字符串
-        StringBuilder hex = new StringBuilder();
-        for (byte b : bytes) {
-            hex.append(String.format("%02x", b));
+        // 判断是否需要次位图
+        boolean hasSecondaryBitmap = false;
+        for (int i = 64; i < 128; i++) {
+            if (bitmap[i]) {
+                hasSecondaryBitmap = true;
+                break;
+            }
         }
-        return hex.toString();
+
+        // 如果存在次位图，设置主位图的第 1 位为 1
+        if (hasSecondaryBitmap) {
+            bitmap[0] = true;
+        }
+
+        // 将位图转换为十六进制字符串
+        StringBuilder hexBitmap = new StringBuilder();
+        for (int i = 0; i < (hasSecondaryBitmap ? 128 : 64); i += 4) {
+            int value = 0;
+            for (int j = 0; j < 4; j++) {
+                if (bitmap[i + j]) {
+                    value |= (1 << (3 - j)); // 将 4 位二进制转换为 1 位十六进制
+                }
+            }
+            hexBitmap.append(Integer.toHexString(value));
+        }
+
+        return hexBitmap.toString();
     }
 
-    public static void main(String[] args) {
-        // 示例：计算 Bitmap
-        int[] fields = {3, 7, 41, 42};
-        String bitmap = calculateBitmap(fields);
-        System.out.println("Bitmap: " + bitmap);
-    }
 }
