@@ -165,23 +165,24 @@ public class FomoPayService {
             // 获取当前时间
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
             String transmissionDateTime = dateFormat.format(new Date());
-            requestBody.put("0", "0100");  // 消息类型标识符（0100 表示查询请求）
-            requestBody.put("1", bitmap);  // 位图
-            requestBody.put("3", "300000");  // 处理代码
-            requestBody.put("7", transmissionDateTime);  // 传输日期和时间
-            requestBody.put("11", stan);  // 系统跟踪审计号（STAN）
-            requestBody.put("41", TID);  // 终端标识符
-            requestBody.put("42", MID);  // 商户标识符
+
+            requestBody.put("0", "0100"); // 消息类型标识符
+            requestBody.put("1", bitmap); // 位图
+            requestBody.put("3", "300000"); // 处理代码
+            requestBody.put("7", transmissionDateTime); // 传输日期和时间
+            requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计号（STAN）
+            requestBody.put("41", TID); // 终端 ID
+            requestBody.put("42", MID); // 商户 ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            System.out.println("Request Payload: " + payload);
+            //System.out.println("Request Payload: " + payload);
 
             // 4. 生成签名
             long timestamp = System.currentTimeMillis() / 1000;
             String nonce = UUID.randomUUID().toString().substring(0, 16);
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
 
-            // 5. 发送查询请求
+            // 5. 设置请求头
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
             headers.put("X-Authentication-Method", "SHA256WithRSA");
@@ -191,19 +192,17 @@ public class FomoPayService {
             headers.put("X-Authentication-Sign", signature);
             headers.put("Content-Type", "application/json");
 
-            System.out.println("Request Headers: " + headers);
-            System.out.println("Request Signature: " + signature);
-
+            // 6. 发送查询请求
             String response = fomoPayUtil.sendHttpPostRequest(API_URL, payload, headers);
 
-            // 6. 处理响应
+            // 7. 处理响应
             if (response == null || response.isEmpty()) {
                 throw new RuntimeException("Empty response from FOMO Pay API");
             }
 
             ObjectNode jsonResponse = (ObjectNode) objectMapper.readTree(response);
 
-            // 7. 验证响应
+            // 8. 验证响应
             if (!jsonResponse.has("39")) {
                 throw new RuntimeException("Invalid response format: missing status code");
             }
@@ -211,7 +210,7 @@ public class FomoPayService {
             String responseCode = jsonResponse.get("39").asText();
             String errorMessage = jsonResponse.has("113") ? hexToString(jsonResponse.get("113").asText()) : null;
 
-            // 8. 构建结果
+            // 9. 构建结果
             StringBuilder result = new StringBuilder();
             result.append("Query Result:\n");
             result.append("Status: ").append(responseCode).append("\n");
@@ -362,7 +361,7 @@ public class FomoPayService {
             requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            System.out.println("payload=="+payload);
+            //System.out.println("payload=="+payload);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
@@ -472,7 +471,7 @@ public class FomoPayService {
             requestBody.put("42", MID); // 商户ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            System.out.println("payload===" + payload);
+            //System.out.println("payload===" + payload);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
@@ -480,10 +479,10 @@ public class FomoPayService {
             String nonce = formattedTimestamp; // Use formatted timestamp as nonce
 
             String dataToSign = payload + timestamp + nonce + privateKey;
-            System.out.println("dataToSign=="+dataToSign);
+            //System.out.println("dataToSign=="+dataToSign);
             // 4. 对请求进行签名
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
-            System.out.println("signature==="+signature);
+            //System.out.println("signature==="+signature);
             // 5. 发送 HTTP POST 请求
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");

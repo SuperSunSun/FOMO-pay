@@ -37,7 +37,6 @@ public class FomoPayController {
     @GetMapping("/query/{stan}")
     public String getPaymentStatus(@PathVariable("stan") int stan) {
         try {
-//            return fomoPayService.sendQueryRequest(stan);
             return fomoPayService.query(stan);
         } catch (Exception e) {
             e.printStackTrace();
@@ -54,8 +53,8 @@ public class FomoPayController {
      * @param description  交易描述
      * @return 退款处理结果
      */
-    @PostMapping("/reversal")
-    public String reversal(@RequestParam(required = true) String stan,
+    @PostMapping("/refund")
+    public String refund(@RequestParam(required = true) String stan,
                            @RequestParam(required = true) int amount,
                            @RequestParam(required = true) String retrievalRef,
                            @RequestParam(required = true) String description) {
