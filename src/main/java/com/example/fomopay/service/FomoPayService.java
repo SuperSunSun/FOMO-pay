@@ -192,7 +192,6 @@ public class FomoPayService {
             requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            System.out.println("payload===" + payload);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
@@ -283,7 +282,6 @@ public class FomoPayService {
             requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
-            System.out.println("payload===" + payload);
 
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
@@ -292,10 +290,8 @@ public class FomoPayService {
             String nonce = formattedTimestamp; // Use formatted timestamp as nonce
 
             String dataToSign = payload + timestamp + nonce;
-            System.out.println("Data to Sign: " + dataToSign);
             // 4. 对请求进行签名
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
-            System.out.println("Generated Signature: " + signature);
 
             // 5. 发送 HTTP POST 请求
             Map<String, String> headers = new HashMap<>();
