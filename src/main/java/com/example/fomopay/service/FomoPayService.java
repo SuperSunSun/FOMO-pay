@@ -4,6 +4,9 @@ import com.example.fomopay.util.FomoPayUtil;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -132,21 +135,98 @@ public class FomoPayService {
      * @param stan 系统跟踪审计号
      * @return 查询请求的JSON字符串
      */
-    public String getQueryRequestBody(int stan) {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("0", "0100");  // 消息类型标识符（0100 表示查询请求）
-        requestBody.put("1", "a23840800ac080020000010001000000");  // 位图
-        requestBody.put("3", "300000");  // 处理代码
-        requestBody.put("7", "1231235959");  // 传输日期和时间
-        requestBody.put("11", stan);  // 系统跟踪审计号（STAN）
-        requestBody.put("41", "10000007");  // 终端标识符
-        requestBody.put("42", "110000000000849");  // 商户标识符
-
+    /**
+     * 查询支付状态
+     *
+     * @param stan 系统跟踪审计号（6位数字）
+     * @return 查询结果，包含状态码和交易详情
+     * @throws IllegalArgumentException 如果stan不是6位数字
+     */
+    public String query(int stan) {
         try {
+            // 1. 参数验证
+            if (stan < 0 || stan > 999999) {
+                throw new IllegalArgumentException("STAN must be a 6-digit number");
+            }
+
+            // 2. 加载私钥
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+            if (privateKey == null) {
+                throw new RuntimeException("Failed to load private key");
+            }
+
+            // 3. 构建查询请求
             ObjectMapper objectMapper = new ObjectMapper();
-            return objectMapper.writeValueAsString(requestBody);
+            ObjectNode requestBody = objectMapper.createObjectNode();
+
+            // 计算位图 (包含字段 0,1,3,7,11,41,42)
+            String bitmap = calculateBitmap(new int[]{3, 7, 11, 41, 42});
+
+            // 获取当前时间
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
+            String transmissionDateTime = dateFormat.format(new Date());
+            requestBody.put("0", "0100");  // 消息类型标识符（0100 表示查询请求）
+            requestBody.put("1", bitmap);  // 位图
+            requestBody.put("3", "300000");  // 处理代码
+            requestBody.put("7", transmissionDateTime);  // 传输日期和时间
+            requestBody.put("11", stan);  // 系统跟踪审计号（STAN）
+            requestBody.put("41", TID);  // 终端标识符
+            requestBody.put("42", MID);  // 商户标识符
+
+            String payload = objectMapper.writeValueAsString(requestBody);
+            System.out.println("Request Payload: " + payload);
+
+            // 4. 生成签名
+            long timestamp = System.currentTimeMillis() / 1000;
+            String nonce = UUID.randomUUID().toString().substring(0, 16);
+            String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
+
+            // 5. 发送查询请求
+            Map<String, String> headers = new HashMap<>();
+            headers.put("X-Authentication-Version", "1.1");
+            headers.put("X-Authentication-Method", "SHA256WithRSA");
+            headers.put("X-Authentication-KeyId", KEY_ID);
+            headers.put("X-Authentication-Nonce", nonce);
+            headers.put("X-Authentication-Timestamp", String.valueOf(timestamp));
+            headers.put("X-Authentication-Sign", signature);
+            headers.put("Content-Type", "application/json");
+
+            System.out.println("Request Headers: " + headers);
+            System.out.println("Request Signature: " + signature);
+
+            String response = fomoPayUtil.sendHttpPostRequest(API_URL, payload, headers);
+
+            // 6. 处理响应
+            if (response == null || response.isEmpty()) {
+                throw new RuntimeException("Empty response from FOMO Pay API");
+            }
+
+            ObjectNode jsonResponse = (ObjectNode) objectMapper.readTree(response);
+
+            // 7. 验证响应
+            if (!jsonResponse.has("39")) {
+                throw new RuntimeException("Invalid response format: missing status code");
+            }
+
+            String responseCode = jsonResponse.get("39").asText();
+            String errorMessage = jsonResponse.has("113") ? hexToString(jsonResponse.get("113").asText()) : null;
+
+            // 8. 构建结果
+            StringBuilder result = new StringBuilder();
+            result.append("Query Result:\n");
+            result.append("Status: ").append(responseCode).append("\n");
+            if (errorMessage != null) {
+                result.append("Error Message: ").append(errorMessage).append("\n");
+            }
+            result.append("STAN: ").append(String.format("%06d", stan)).append("\n");
+            result.append("Response Details:\n");
+            result.append(jsonResponse.toPrettyString());
+
+            return result.toString();
+
         } catch (Exception e) {
-            throw new RuntimeException("Failed to create request body", e);
+            e.printStackTrace();
+            return "Error: " + e.getMessage();
         }
     }
 
@@ -158,7 +238,7 @@ public class FomoPayService {
      * @return 退款处理结果，包含状态码和错误信息（如果有）
      * @throws RuntimeException 当退款处理失败时抛出
      */
-    public String reversal(String stan, long amount, String retrievalRef, String description) {
+    public String refund(String stan, long amount, String retrievalRef, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
@@ -247,11 +327,11 @@ public class FomoPayService {
      * 3. 生成签名
      * 4. 发送请求并验证响应
      *
-     * @return 测试结果，包含API响应和验证状态
-     * @throws RuntimeException 当测试失败时抛出
      * @param stan
      * @param amount
      * @param description
+     * @return 测试结果，包含API响应和验证状态
+     * @throws RuntimeException 当测试失败时抛出
      */
     public String sale(int stan, int amount, String description) {
         try {
@@ -363,9 +443,63 @@ public class FomoPayService {
 
     /**
      * 结算
+     *
      * @return
      */
     public String batchSubmit() {
-        return null;
+        try {
+            // 1. 从 static 目录加载私钥和公钥
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+            PublicKey publicKey = fomoPayUtil.loadPublicKey("public_key.pem");
+
+            // 2. 使用 Jackson 构造 JSON 请求体
+            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectNode requestBody = objectMapper.createObjectNode();
+            // 根据发送的字段计算位图——位图计算遵循FOMO PayAPI规范
+            String bitmap = calculateBitmap(new int[]{3, 7, 41, 42});
+
+            requestBody.put("0", "0500"); // Message type identifier
+            requestBody.put("1", "2200000000c00000"); // 计算图
+            requestBody.put("3", "000000"); // 交易处理码
+
+            // 获取当前日期和时间
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMddHHmmss");
+            String formattedDateTime = now.format(formatter);
+
+            // 将格式化后的日期和时间放入请求体
+            requestBody.put("7", formattedDateTime);
+            requestBody.put("41", TID); // 终端ID
+            requestBody.put("42", MID); // 商户ID
+
+            String payload = objectMapper.writeValueAsString(requestBody);
+            System.out.println("payload===" + payload);
+            // 3. 生成时间戳和随机数
+            long timestamp = System.currentTimeMillis() / 1000;
+            String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
+                    .format(new java.util.Date(timestamp * 1000));
+            String nonce = formattedTimestamp; // Use formatted timestamp as nonce
+
+            String dataToSign = payload + timestamp + nonce + privateKey;
+            System.out.println("dataToSign=="+dataToSign);
+            // 4. 对请求进行签名
+            String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
+            System.out.println("signature==="+signature);
+            // 5. 发送 HTTP POST 请求
+            Map<String, String> headers = new HashMap<>();
+            headers.put("X-Authentication-Version", "1.1");
+            headers.put("X-Authentication-Method", "SHA256WithRSA");
+            headers.put("X-Authentication-KeyId", KEY_ID); // 使用支付厂家提供的 Key ID
+            headers.put("X-Authentication-Nonce", nonce); // 随机数
+            headers.put("X-Authentication-Timestamp", String.valueOf(timestamp)); // 时间戳
+            headers.put("X-Authentication-Sign", signature); // 签名
+            headers.put("Content-Type", "application/json");
+            // 5. 发送 HTTP POST 请求并获取完整响应
+            String response = fomoPayUtil.sendHttpPostRequest(API_URL, payload, headers);
+            return response;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error: " + e.getMessage();
+        }
     }
 }
