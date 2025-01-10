@@ -286,7 +286,6 @@ public class FomoPayService {
             System.out.println("payload===" + payload);
 
             // 3. 生成时间戳和随机数
-            // Generate timestamp in required format (YYYYMMDDHHmmss)
             long timestamp = System.currentTimeMillis() / 1000;
             String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
                     .format(new java.util.Date(timestamp * 1000));
