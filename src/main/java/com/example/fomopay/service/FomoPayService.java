@@ -303,11 +303,9 @@ public class FomoPayService {
             headers.put("X-Authentication-Sign", signature); // 签名
             headers.put("Content-Type", "application/json");
 
-            System.out.println("Request Headers: " + headers);
 
             // 5. 发送 HTTP POST 请求并获取完整响应
             String response = fomoPayUtil.sendHttpPostRequest(API_URL, payload, headers);
-            System.out.println("Raw API Response: " + response);
 
             // 6. 处理响应
             if (response == null || response.isEmpty()) {
