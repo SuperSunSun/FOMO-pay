@@ -450,16 +450,15 @@ public class FomoPayService {
         try {
             // 1. 从 static 目录加载私钥和公钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
-            PublicKey publicKey = fomoPayUtil.loadPublicKey("public_key.pem");
 
             // 2. 使用 Jackson 构造 JSON 请求体
             ObjectMapper objectMapper = new ObjectMapper();
             ObjectNode requestBody = objectMapper.createObjectNode();
             // 根据发送的字段计算位图——位图计算遵循FOMO PayAPI规范
-            String bitmap = calculateBitmap(new int[]{3, 7, 41, 42});
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 41, 42});
 
             requestBody.put("0", "0500"); // Message type identifier
-            requestBody.put("1", "2200000000c00000"); // 计算图
+            requestBody.put("1", bitmap); // 计算图
             requestBody.put("3", "000000"); // 交易处理码
 
             // 获取当前日期和时间

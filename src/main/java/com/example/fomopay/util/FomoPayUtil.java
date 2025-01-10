@@ -30,9 +30,7 @@ import org.springframework.stereotype.Component;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class FomoPayUtil {
@@ -372,4 +370,56 @@ public class FomoPayUtil {
         return bytesToHex(signedBytes).toLowerCase();
     }
 
+    /**
+     * 计算 Bitmap 值
+     *
+     * @param fieldNumbers 包含的字段编号数组，例如 {3, 7, 41, 42}
+     * @return 计算后的 Bitmap 的十六进制表示
+     */
+    public static String calculateBitmap(int[] fieldNumbers) {
+        // 初始化主 Bitmap（64 位）
+        BitSet primaryBitmap = new BitSet(64);
+
+        // 遍历字段编号，将对应位设置为 1
+        for (int field : fieldNumbers) {
+            if (field > 64) {
+                throw new IllegalArgumentException("Field number exceeds 64. Secondary bitmap not implemented.");
+            }
+            primaryBitmap.set(field - 1); // 字段编号从 1 开始，BitSet 从 0 开始
+        }
+
+        // 将 BitSet 转换为 16 字节（64 位）的十六进制字符串
+        return bitSetToHex(primaryBitmap, 64);
+    }
+
+    /**
+     * 将 BitSet 转换为固定长度的十六进制字符串
+     *
+     * @param bitSet 要转换的 BitSet
+     * @param bitLength 指定的位数长度（64 位）
+     * @return 十六进制表示
+     */
+    private static String bitSetToHex(BitSet bitSet, int bitLength) {
+        // 初始化字节数组，确保每 8 位占用一个字节
+        byte[] bytes = new byte[(bitLength + 7) / 8];
+        for (int i = 0; i < bitLength; i++) {
+            if (bitSet.get(i)) {
+                bytes[i / 8] |= (1 << (7 - (i % 8))); // 高位在前
+            }
+        }
+
+        // 转换为十六进制字符串
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
+    }
+
+    public static void main(String[] args) {
+        // 示例：计算 Bitmap
+        int[] fields = {3, 7, 41, 42};
+        String bitmap = calculateBitmap(fields);
+        System.out.println("Bitmap: " + bitmap);
+    }
 }
