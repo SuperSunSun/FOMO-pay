@@ -116,7 +116,7 @@ public class FomoPayService {
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
             String transmissionDateTime = dateFormat.format(new Date());
 
-            requestBody.put("0", "0100"); // 消息类型标识符
+            requestBody.put("0", "0100"); // Message type identifier
             requestBody.put("1", bitmap); // 位图
             requestBody.put("3", "300000"); // 处理代码
             requestBody.put("7", transmissionDateTime); // 传输日期和时间
@@ -196,7 +196,7 @@ public class FomoPayService {
             ObjectNode requestBody = objectMapper.createObjectNode();
             String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 37, 41, 42, 89, 104});
 
-            requestBody.put("0", "0400"); // Message type identifier
+            requestBody.put("0", "0400"); // 消息类型标识符
             requestBody.put("1", bitmap); // 计算图
             requestBody.put("3", "000000"); // 退款处理码
             // 获取当前时间并格式化
@@ -297,7 +297,7 @@ public class FomoPayService {
             // 根据发送的字段计算位图——位图计算遵循FOMO PayAPI规范
             String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 18, 25, 41, 42, 49, 88, 104});
 
-            requestBody.put("0", "0200"); // Message type identifier
+            requestBody.put("0", "0200"); // 消息类型标识符
             requestBody.put("1", bitmap); // 计算图
             requestBody.put("3", "000000"); // 交易处理码
             requestBody.put("7", "1231235959"); // 发送日期和时间
@@ -408,7 +408,7 @@ public class FomoPayService {
             // 根据发送的字段计算位图——位图计算遵循FOMO PayAPI规范
             String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 41, 42});
 
-            requestBody.put("0", "0500"); // Message type identifier
+            requestBody.put("0", "0500"); // 消息类型标识符
             requestBody.put("1", bitmap); // 计算图
             requestBody.put("3", "000000"); // 交易处理码
 
