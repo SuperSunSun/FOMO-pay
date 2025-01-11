@@ -1,5 +1,7 @@
 package com.example.fomopay.controller;
 
+import com.example.fomopay.dto.RefundRequest;
+import com.example.fomopay.dto.ReversalRequest;
 import com.example.fomopay.service.FomoPayService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -12,14 +14,16 @@ public class FomoPayController {
     private FomoPayService fomoPayService;
 
     /**
-     * 销售
-     *
-     * @return 销售数据
+     * 处理销售交易
+     * @param stan 系统跟踪号
+     * @param amount 交易金额
+     * @param description 交易描述
+     * @return 交易处理结果
      */
-    @GetMapping("/sale")
-    public String sale(@RequestParam(required = true) int stan,
-                       @RequestParam(required = true) long amount,
-                       @RequestParam(required = true) String description) {
+    @GetMapping("/transactions/sale")
+    public String processSale(@RequestParam int stan,
+                            @RequestParam long amount,
+                            @RequestParam String description) {
         try {
             return fomoPayService.sale(stan, amount,description);
         } catch (Exception e) {
@@ -29,13 +33,12 @@ public class FomoPayController {
     }
 
     /**
-     * 查询支付状态
-     *
+     * 查询交易状态
      * @param stan 系统跟踪号
-     * @return 支付状态信息
+     * @return 交易状态信息
      */
-    @GetMapping("/query/{stan}")
-    public String getPaymentStatus(@PathVariable("stan") int stan) {
+    @GetMapping("/transactions/{stan}/status")
+    public String getTransactionStatus(@PathVariable int stan) {
         try {
             return fomoPayService.query(stan);
         } catch (Exception e) {
@@ -46,26 +49,20 @@ public class FomoPayController {
 
     /**
      * 处理退款请求
-     *
-     * @param stan         系统跟踪号（6位数字）
-     * @param amount       退款金额
-     * @param retrievalRef 检索参考号（来自原始交易）
-     * @param description  交易描述
+     * @param stan 系统跟踪号
      * @return 退款处理结果
      */
-    @PostMapping("/refund")
-    public String refund(@RequestParam(required = true) String stan,
-                           @RequestParam(required = true) long amount,
-                           @RequestParam(required = true) String retrievalRef,
-                           @RequestParam(required = true) String description) {
+    @PutMapping("/transactions/{stan}/refund")
+    public String processRefund(@PathVariable String stan,
+                              @RequestBody RefundRequest request) {
         try {
 
             // 调用服务层处理退款
             return fomoPayService.refund(
                     stan,
-                    amount,
-                    retrievalRef,
-                    description
+                    request.getAmount(),
+                    request.getRetrievalRef(),
+                    request.getDescription()
             );
         } catch (Exception e) {
             e.printStackTrace();
@@ -74,12 +71,11 @@ public class FomoPayController {
     }
 
     /**
-     * 结算
-     *
-     * @return 结算
+     * 执行批量结算
+     * @return 结算结果
      */
-    @GetMapping("/batchSubmit")
-    public String batchSubmit() {
+    @GetMapping("/transactions/batch-settlement")
+    public String processBatchSettlement() {
         try {
             return fomoPayService.batchSubmit();
         } catch (Exception e) {
@@ -89,21 +85,16 @@ public class FomoPayController {
     }
 
     /**
-     * 处理撤销请求
-     *
-     * @param stan         系统跟踪号
-     * @param amount       金额
-     * @param retrievalRef 检索参考号
-     * @param description  交易描述
+     * 处理交易撤销请求
+     * @param stan 系统跟踪号
      * @return 撤销处理结果
      */
-    @PostMapping("/reversal")
-    public String reversal(@RequestParam(required = true) String stan,
-                         @RequestParam(required = true) long amount,
-                         @RequestParam(required = true) String retrievalRef,
-                         @RequestParam(required = true) String description) {
+    @DeleteMapping("/transactions/{stan}")
+    public String processReversal(@PathVariable String stan) {
         try {
-            return fomoPayService.reversal(stan, amount, retrievalRef, description);
+            return fomoPayService.reversal(
+                    stan
+            );
         } catch (Exception e) {
             e.printStackTrace();
             return "Error: " + e.getMessage();
