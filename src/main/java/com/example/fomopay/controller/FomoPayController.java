@@ -18,7 +18,7 @@ public class FomoPayController {
      */
     @GetMapping("/sale")
     public String sale(@RequestParam(required = true) int stan,
-                       @RequestParam(required = true) int amount,
+                       @RequestParam(required = true) long amount,
                        @RequestParam(required = true) String description) {
         try {
             return fomoPayService.sale(stan, amount,description);
@@ -55,7 +55,7 @@ public class FomoPayController {
      */
     @PostMapping("/refund")
     public String refund(@RequestParam(required = true) String stan,
-                           @RequestParam(required = true) int amount,
+                           @RequestParam(required = true) long amount,
                            @RequestParam(required = true) String retrievalRef,
                            @RequestParam(required = true) String description) {
         try {
@@ -73,7 +73,6 @@ public class FomoPayController {
         }
     }
 
-
     /**
      * 结算
      *
@@ -83,6 +82,28 @@ public class FomoPayController {
     public String batchSubmit() {
         try {
             return fomoPayService.batchSubmit();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 处理撤销请求
+     *
+     * @param stan         系统跟踪号
+     * @param amount       金额
+     * @param retrievalRef 检索参考号
+     * @param description  交易描述
+     * @return 撤销处理结果
+     */
+    @PostMapping("/reversal")
+    public String reversal(@RequestParam(required = true) String stan,
+                         @RequestParam(required = true) long amount,
+                         @RequestParam(required = true) String retrievalRef,
+                         @RequestParam(required = true) String description) {
+        try {
+            return fomoPayService.reversal(stan, amount, retrievalRef, description);
         } catch (Exception e) {
             e.printStackTrace();
             return "Error: " + e.getMessage();

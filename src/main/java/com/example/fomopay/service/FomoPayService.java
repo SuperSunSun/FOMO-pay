@@ -288,7 +288,7 @@ public class FomoPayService {
      * @return 测试结果，包含API响应和验证状态
      * @throws RuntimeException 当测试失败时抛出
      */
-    public String sale(int stan, int amount, String description) {
+    public String sale(int stan, long amount, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
@@ -447,6 +447,92 @@ public class FomoPayService {
             // 5. 发送 HTTP POST 请求并获取完整响应
             String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
             return response;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * 处理撤销请求
+     *
+     * @param stan         系统跟踪号
+     * @param amount       金额
+     * @param retrievalRef 检索参考号
+     * @param description  交易描述
+     * @return 撤销处理结果
+     */
+    public String reversal(String stan, long amount, String retrievalRef, String description) {
+        try {
+            // 1. 加载私钥
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+
+            // 2. 构建撤销请求
+            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectNode requestBody = objectMapper.createObjectNode();
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 37, 41, 42, 89, 104});
+
+            requestBody.put("0", "0400"); // 消息类型标识符
+            requestBody.put("1", bitmap); // 位图
+            requestBody.put("3", "200000"); // 撤销处理码
+
+            // 获取当前时间
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
+            String transmissionDateTime = dateFormat.format(new Date());
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
+            String localTime = timeFormat.format(new Date());
+            SimpleDateFormat dateOnlyFormat = new SimpleDateFormat("MMdd");
+            String localDate = dateOnlyFormat.format(new Date());
+
+            requestBody.put("7", transmissionDateTime); // 传输日期和时间
+            requestBody.put("11", stan); // 系统跟踪审计号
+            requestBody.put("12", localTime); // 本地交易时间
+            requestBody.put("13", localDate); // 本地交易日期
+            requestBody.put("37", retrievalRef); // 检索参考号
+            requestBody.put("41", tid); // 终端ID
+            requestBody.put("42", mid); // 商户ID
+            requestBody.put("89", String.format("%012d", amount)); // 金额
+            requestBody.put("104", description); // 交易描述
+
+            String payload = objectMapper.writeValueAsString(requestBody);
+
+            // 3. 生成签名
+            long timestamp = System.currentTimeMillis() / 1000;
+            String nonce = UUID.randomUUID().toString().substring(0, 16);
+            String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
+
+            // 4. 设置请求头
+            Map<String, String> headers = new HashMap<>();
+            headers.put("X-Authentication-Version", "1.1");
+            headers.put("X-Authentication-Method", "SHA256WithRSA");
+            headers.put("X-Authentication-KeyId", keyId);
+            headers.put("X-Authentication-Nonce", nonce);
+            headers.put("X-Authentication-Timestamp", String.valueOf(timestamp));
+            headers.put("X-Authentication-Sign", signature);
+            headers.put("Content-Type", "application/json");
+
+            // 5. 发送请求
+            String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
+
+            // 6. 处理响应
+            if (response == null || response.isEmpty()) {
+                throw new RuntimeException("Empty response from FOMO Pay API");
+            }
+
+            ObjectNode jsonResponse = (ObjectNode) objectMapper.readTree(response);
+            String responseCode = jsonResponse.get("39").asText();
+            String errorMessage = jsonResponse.has("113") ? hexToString(jsonResponse.get("113").asText()) : null;
+
+            StringBuilder result = new StringBuilder();
+            result.append("Reversal Result:\n");
+            result.append("Status: ").append(responseCode).append("\n");
+            if (errorMessage != null) {
+                result.append("Error Message: ").append(errorMessage).append("\n");
+            }
+            result.append(jsonResponse.toPrettyString());
+
+            return result.toString();
+
         } catch (Exception e) {
             e.printStackTrace();
             return "Error: " + e.getMessage();
