@@ -54,10 +54,10 @@ public class FomoPayController {
      * @return 退款处理结果
      */
     @PutMapping("/transactions")
-    public String processRefund(@PathVariable int stan,
-                                @PathVariable int amount,
-                                @PathVariable String retrievalRef,
-                                @PathVariable String description
+    public String processRefund(@RequestParam int stan,
+                                @RequestParam int amount,
+                                @RequestParam String retrievalRef,
+                                @RequestParam String description
     ) {
         try {
 
