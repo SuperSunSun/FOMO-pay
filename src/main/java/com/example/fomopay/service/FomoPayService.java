@@ -451,40 +451,31 @@ public class FomoPayService {
     }
 
     /**
-     * 处理撤销请求
+     * 处理交易作废请求
      *
      * @param stan 系统跟踪号
-     * @return 撤销处理结果
+     * @return 作废处理结果
      */
-    public String reversal(int stan) {
+    public String voidTransaction(int stan) {
         try {
             // 1. 加载私钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
 
-            // 2. 构建撤销请求
+            // 2. 构建作废请求
             ObjectMapper objectMapper = new ObjectMapper();
             ObjectNode requestBody = objectMapper.createObjectNode();
-            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 41, 42});
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 41, 42});
 
-            requestBody.put("0", "0400"); // 消息类型标识符
+            requestBody.put("0", "0420"); // 消息类型标识符
             requestBody.put("1", bitmap); // 位图
-            requestBody.put("3", "200000"); // 撤销处理码
+            requestBody.put("3", "000000"); // 作废处理码
 
             // 获取当前时间
             SimpleDateFormat dateFormat = new SimpleDateFormat("MMddHHmmss");
             String transmissionDateTime = dateFormat.format(new Date());
-            SimpleDateFormat timeFormat = new SimpleDateFormat("HHmmss");
-            String localTime = timeFormat.format(new Date());
-            SimpleDateFormat dateOnlyFormat = new SimpleDateFormat("MMdd");
-            String localDate = dateOnlyFormat.format(new Date());
 
             requestBody.put("7", transmissionDateTime); // 传输日期和时间
             requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计号
-            // 格式化requestBody为6位字符串，不足补0
-            String formattedRequestBody = String.format("%06d", stan);
-            requestBody.put("104", formattedRequestBody); // 交易描述
-            requestBody.put("12", localTime); // 本地交易时间
-            requestBody.put("13", localDate); // 本地交易日期
             requestBody.put("41", tid); // 终端ID
             requestBody.put("42", mid); // 商户ID
 
@@ -516,12 +507,16 @@ public class FomoPayService {
             ObjectNode jsonResponse = (ObjectNode) objectMapper.readTree(response);
             String responseCode = jsonResponse.get("39").asText();
             String errorMessage = jsonResponse.has("113") ? hexToString(jsonResponse.get("113").asText()) : null;
+            String hint = jsonResponse.has("hint") ? jsonResponse.get("hint").asText() : null;
 
             StringBuilder result = new StringBuilder();
-            result.append("Reversal Result:\n");
+            result.append("Void Transaction Result:\n");
             result.append("Status: ").append(responseCode).append("\n");
             if (errorMessage != null) {
                 result.append("Error Message: ").append(errorMessage).append("\n");
+            }
+            if (hint != null) {
+                result.append("Hint: ").append(hint).append("\n");
             }
             result.append(jsonResponse.toPrettyString());
 

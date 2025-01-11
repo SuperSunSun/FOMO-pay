@@ -90,16 +90,15 @@ public class FomoPayController {
     }
 
     /**
-     * 处理交易撤销请求
+     * 处理交易作废请求
      *
      * @param stan 系统跟踪号
-     * @return 撤销处理结果
+     * @return 作废处理结果
      */
     @DeleteMapping("/transactions/{stan}")
-    public String processReversal(@PathVariable int stan) {
+    public String processVoidTransaction(@PathVariable int stan) {
         try {
-            // 格式化requestBody为6位字符串，不足补0
-            return fomoPayService.reversal(
+            return fomoPayService.voidTransaction(
                     stan
             );
         } catch (Exception e) {
