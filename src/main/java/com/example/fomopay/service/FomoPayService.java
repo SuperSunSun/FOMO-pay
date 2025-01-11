@@ -186,7 +186,7 @@ public class FomoPayService {
      * @return 退款处理结果，包含状态码和错误信息（如果有）
      * @throws RuntimeException 当退款处理失败时抛出
      */
-    public String refund(String stan, long amount, String retrievalRef, String description) {
+    public String refund(int stan, long amount, String retrievalRef, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
@@ -209,10 +209,7 @@ public class FomoPayService {
 
             requestBody.put("7", transmissionDateTime); // 发送日期和时间
             // 验证stan是否为6位数字
-            if (stan == null || !stan.matches("\\d{6}")) {
-                throw new IllegalArgumentException("STAN must be a 6-digit number");
-            }
-            requestBody.put("11", stan); // 系统跟踪审计号
+            requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计号
             requestBody.put("12", localTime); // 本地交易时间
             requestBody.put("13", localDate); // 本地交易日期
             requestBody.put("37", retrievalRef); // 交易的检索参考码
@@ -456,13 +453,10 @@ public class FomoPayService {
     /**
      * 处理撤销请求
      *
-     * @param stan         系统跟踪号
-     * @param amount       金额
-     * @param retrievalRef 检索参考号
-     * @param description  交易描述
+     * @param stan 系统跟踪号
      * @return 撤销处理结果
      */
-    public String reversal(String stan, long amount, String retrievalRef, String description) {
+    public String reversal(int stan) {
         try {
             // 1. 加载私钥
             PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
@@ -470,7 +464,7 @@ public class FomoPayService {
             // 2. 构建撤销请求
             ObjectMapper objectMapper = new ObjectMapper();
             ObjectNode requestBody = objectMapper.createObjectNode();
-            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 37, 41, 42, 89, 104});
+            String bitmap = fomoPayUtil.calculateBitmap(new int[]{3, 7, 11, 12, 13, 41, 42});
 
             requestBody.put("0", "0400"); // 消息类型标识符
             requestBody.put("1", bitmap); // 位图
@@ -485,14 +479,14 @@ public class FomoPayService {
             String localDate = dateOnlyFormat.format(new Date());
 
             requestBody.put("7", transmissionDateTime); // 传输日期和时间
-            requestBody.put("11", stan); // 系统跟踪审计号
+            requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计号
+            // 格式化requestBody为6位字符串，不足补0
+            String formattedRequestBody = String.format("%06d", stan);
+            requestBody.put("104", formattedRequestBody); // 交易描述
             requestBody.put("12", localTime); // 本地交易时间
             requestBody.put("13", localDate); // 本地交易日期
-            requestBody.put("37", retrievalRef); // 检索参考号
             requestBody.put("41", tid); // 终端ID
             requestBody.put("42", mid); // 商户ID
-            requestBody.put("89", String.format("%012d", amount)); // 金额
-            requestBody.put("104", description); // 交易描述
 
             String payload = objectMapper.writeValueAsString(requestBody);
 
