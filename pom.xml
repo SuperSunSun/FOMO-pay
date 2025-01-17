@@ -12,7 +12,7 @@
     <artifactId>FOMO-pay</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>FOMO-pay</name>
-    <description>Demo project for Spring Boot</description>
+    <description>Fomo-pay支付api</description>
     <url/>
     <licenses>
         <license/>
@@ -76,11 +76,6 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>4.5.13</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.13.0</version>
         </dependency>
     </dependencies>
 
