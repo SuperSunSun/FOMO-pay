@@ -8,10 +8,10 @@
         <version>2.7.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.example</groupId>
-    <artifactId>FOMO-pay</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <groupId>com.hejz</groupId>
+    <artifactId>fomopay-spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
     <name>FOMO-pay</name>
     <description>Fomo-pay支付api</description>
     <url/>
@@ -21,9 +21,6 @@
     <developers>
         <developer/>
     </developers>
-    <modules>
-        <module>fomopay-demo</module>
-    </modules>
     <scm>
         <connection/>
         <developerConnection/>
@@ -82,19 +79,14 @@
             <version>4.5.13</version>
         </dependency>
         <dependency>
-            <groupId>com.hejz</groupId>
-            <artifactId>fomopay-spring-boot-starter</artifactId>
-            <version>1.0.0</version>
-            <scope>compile</scope>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
+            <!-- Removed spring-boot-maven-plugin as this is a library module -->
         </plugins>
     </build>
 
