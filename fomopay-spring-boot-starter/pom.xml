@@ -12,7 +12,7 @@
     <artifactId>fomopay-spring-boot-starter</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
-    <name>FOMO-pay</name>
+    <name>fomopay-spring-boot-starter</name>
     <description>Fomo-pay支付api</description>
     <url/>
     <licenses>
