@@ -4,9 +4,49 @@ FOMO Pay Java SDK provides Spring Boot Starter and demo application for integrat
 
 ## 安全更新
 
-- 2024-05-01: 升级Spring Boot至3.1.5版本，修复多个安全漏洞
-- 2024-05-01: 升级Jackson至2.15.3版本，修复反序列化漏洞
-- 2024-05-01: 升级BouncyCastle至1.77版本，修复加密相关漏洞
+### 已知漏洞
+以下依赖项存在已知安全漏洞，建议尽快升级：
+
+- **Spring Boot 2.7.6**
+  - CVE-2023-20883: Uncontrolled Resource Consumption
+  - CVE-2023-20860: Insufficient Information
+  - CVE-2023-20861: Expression Language Injection
+  - CVE-2023-20863: Expression Language Injection
+
+- **Logback 1.2.11**
+  - CVE-2023-6378: Deserialization of Untrusted Data
+
+- **SnakeYAML 1.30**
+  - CVE-2022-1471: Deserialization of Untrusted Data
+  - Multiple Out-of-bounds Write vulnerabilities
+
+- **Tomcat 9.0.69**
+  - Multiple high severity vulnerabilities including:
+    - CVE-2024-52316: Unchecked Error Condition
+    - CVE-2024-38286: Resource Allocation Issues
+    - CVE-2023-44487: Resource Exhaustion
+
+- **Jackson 2.13.3**
+  - CVE-2022-42004: Deserialization of Untrusted Data
+  - CVE-2022-42003: Deserialization of Untrusted Data
+
+- **BouncyCastle 1.70**
+  - CVE-2024-30172: Infinite Loop
+  - CVE-2024-29857: Resource Consumption
+
+### 推荐升级版本
+- Spring Boot: 3.1.5
+- Jackson: 2.15.3
+- BouncyCastle: 1.77
+- Logback: 1.4.14
+- SnakeYAML: 2.2
+- Tomcat: 10.1.20
+
+### 安全建议
+1. 定期运行依赖扫描工具 (如 Mend.io)
+2. 及时应用安全补丁
+3. 使用最新稳定版本的依赖项
+4. 在生产环境中启用安全扫描
 
 注意：Spring Boot 3.x需要Java 17或更高版本。如果使用Java 8，请回退到2.7.x版本。
 
