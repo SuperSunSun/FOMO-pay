@@ -1,6 +1,6 @@
-package com.example.fomopay.controller;
+package com.hejz.controller;
 
-import com.example.fomopay.service.FomoPayService;
+import com.hejz.service.FomoPayService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 

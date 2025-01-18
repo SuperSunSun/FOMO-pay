@@ -1,20 +1,21 @@
-package com.example.fomopay.service;
-
-import com.example.fomopay.util.FomoPayUtil;
-
-import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+package com.hejz.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.hejz.autoconfigure.FomoPayProperties;
+import com.hejz.util.FomoPayUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * FOMO Pay 支付服务实现类
@@ -26,30 +27,15 @@ import java.security.PublicKey;
  * 4. 支付集成测试
  */
 @Service
-public class FomoPayService {
+public class FomoPayServiceImpl implements FomoPayService {
     @Autowired
     private FomoPayUtil fomoPayUtil;
 
-    /**
-     * 商户ID
-     */
-    @Value("${mid}")
-    String mid;
-    /**
-     * 终端ID
-     */
-    @Value("${tid}")
-    String tid;
-    /**
-     * 密钥ID
-     */
-    @Value("${keyId}")
-    String keyId;
-    /**
-     * FOMO Pay API 地址
-     */
-    @Value("${apiUrl}")
-    String apiUrl;
+    private FomoPayProperties fomoPayProperties;
+
+    public FomoPayServiceImpl(FomoPayProperties fomoPayProperties) {
+        this.fomoPayProperties = fomoPayProperties;
+    }
 
 
     /**
@@ -81,6 +67,7 @@ public class FomoPayService {
      * @return 查询结果，包含状态码和交易详情
      * @throws IllegalArgumentException 如果stan不是6位数字
      */
+    @Override
     public String query(int stan) {
         try {
             // 1. 参数验证
@@ -110,8 +97,8 @@ public class FomoPayService {
             requestBody.put("3", "300000"); // 处理代码
             requestBody.put("7", transmissionDateTime); // 传输日期和时间
             requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计号（STAN）
-            requestBody.put("41", tid); // 终端 ID
-            requestBody.put("42", mid); // 商户 ID
+            requestBody.put("41", fomoPayProperties.getTid()); // 终端 ID
+            requestBody.put("42", fomoPayProperties.getMid()); // 商户 ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
 
@@ -124,14 +111,14 @@ public class FomoPayService {
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
             headers.put("X-Authentication-Method", "SHA256WithRSA");
-            headers.put("X-Authentication-KeyId", keyId);
+            headers.put("X-Authentication-KeyId", fomoPayProperties.getKeyId());
             headers.put("X-Authentication-Nonce", nonce);
             headers.put("X-Authentication-Timestamp", String.valueOf(timestamp));
             headers.put("X-Authentication-Sign", signature);
             headers.put("Content-Type", "application/json");
 
             // 6. 发送查询请求
-            String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
+            String response = fomoPayUtil.sendHttpPostRequest(fomoPayProperties.getApiUrl(), payload, headers);
 
             // 7. 处理响应
             if (response == null || response.isEmpty()) {
@@ -175,6 +162,7 @@ public class FomoPayService {
      * @return 退款处理结果，包含状态码和错误信息（如果有）
      * @throws RuntimeException 当退款处理失败时抛出
      */
+    @Override
     public String refund(int stan, long amount, String retrievalRef, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
@@ -202,8 +190,8 @@ public class FomoPayService {
             requestBody.put("12", localTime); // 本地交易时间
             requestBody.put("13", localDate); // 本地交易日期
             requestBody.put("37", retrievalRef); // 交易的检索参考码
-            requestBody.put("41", tid); // 终端ID
-            requestBody.put("42", mid); // 商户ID
+            requestBody.put("41", fomoPayProperties.getTid()); // 终端ID
+            requestBody.put("42", fomoPayProperties.getMid()); // 商户ID
             // 将金额转换为分（cents）并格式化为12位数字
             String formattedAmount = String.format("%012d", amount);
             // 验证格式是否正确
@@ -216,8 +204,8 @@ public class FomoPayService {
             String payload = objectMapper.writeValueAsString(requestBody);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
-            String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
-                    .format(new java.util.Date(timestamp * 1000));
+            String formattedTimestamp = new SimpleDateFormat("yyyyMMddHHmmss")
+                    .format(new Date(timestamp * 1000));
             String nonce = formattedTimestamp;
 
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
@@ -225,13 +213,13 @@ public class FomoPayService {
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
             headers.put("X-Authentication-Method", "SHA256WithRSA");
-            headers.put("X-Authentication-KeyId", keyId);
+            headers.put("X-Authentication-KeyId", fomoPayProperties.getKeyId());
             headers.put("X-Authentication-Nonce", nonce);
             headers.put("X-Authentication-Timestamp", String.valueOf(timestamp));
             headers.put("X-Authentication-Sign", signature);
             headers.put("Content-Type", "application/json");
 
-            String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
+            String response = fomoPayUtil.sendHttpPostRequest(fomoPayProperties.getApiUrl(), payload, headers);
 
             // 5. 处理响应
             if (response == null || response.isEmpty()) {
@@ -274,6 +262,7 @@ public class FomoPayService {
      * @return 测试结果，包含API响应和验证状态
      * @throws RuntimeException 当测试失败时抛出
      */
+    @Override
     public String sale(int stan, long amount, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
@@ -295,8 +284,8 @@ public class FomoPayService {
             requestBody.put("13", "1231"); // 本地交易日期
             requestBody.put("18", "0005"); // 商户类型
             requestBody.put("25", "30"); // 服务条件代码
-            requestBody.put("41", tid); // 终端ID
-            requestBody.put("42", mid); // 商户ID
+            requestBody.put("41", fomoPayProperties.getTid()); // 终端ID
+            requestBody.put("42", fomoPayProperties.getMid()); // 商户ID
             requestBody.put("49", "SGD"); // 货币代码
             String formattedAmount = String.format("%012d", amount);
             requestBody.put("88", formattedAmount); // 借记总金额
@@ -305,8 +294,8 @@ public class FomoPayService {
             String payload = objectMapper.writeValueAsString(requestBody);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
-            String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
-                    .format(new java.util.Date(timestamp * 1000));
+            String formattedTimestamp = new SimpleDateFormat("yyyyMMddHHmmss")
+                    .format(new Date(timestamp * 1000));
             String nonce = formattedTimestamp; // Use formatted timestamp as nonce
 
             String dataToSign = payload + timestamp + nonce;
@@ -317,7 +306,7 @@ public class FomoPayService {
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
             headers.put("X-Authentication-Method", "SHA256WithRSA");
-            headers.put("X-Authentication-KeyId", keyId); // 使用支付厂家提供的 Key ID
+            headers.put("X-Authentication-KeyId", fomoPayProperties.getKeyId()); // 使用支付厂家提供的 Key ID
             headers.put("X-Authentication-Nonce", nonce); // 随机数
             headers.put("X-Authentication-Timestamp", String.valueOf(timestamp)); // 时间戳
             headers.put("X-Authentication-Sign", signature); // 签名
@@ -325,7 +314,7 @@ public class FomoPayService {
 
 
             // 5. 发送 HTTP POST 请求并获取完整响应
-            String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
+            String response = fomoPayUtil.sendHttpPostRequest(fomoPayProperties.getApiUrl(), payload, headers);
 
             // 6. 处理响应
             if (response == null || response.isEmpty()) {
@@ -386,6 +375,7 @@ public class FomoPayService {
      *
      * @return
      */
+    @Override
     public String batchSubmit() {
         try {
             // 1. 从 static 目录加载私钥和公钥
@@ -408,30 +398,29 @@ public class FomoPayService {
 
             // 将格式化后的日期和时间放入请求体
             requestBody.put("7", formattedDateTime);
-            requestBody.put("41", tid); // 终端ID
-            requestBody.put("42", mid); // 商户ID
+            requestBody.put("41", fomoPayProperties.getTid()); // 终端ID
+            requestBody.put("42", fomoPayProperties.getMid()); // 商户ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
             // 3. 生成时间戳和随机数
             long timestamp = System.currentTimeMillis() / 1000;
-            String formattedTimestamp = new java.text.SimpleDateFormat("yyyyMMddHHmmss")
-                    .format(new java.util.Date(timestamp * 1000));
+            String formattedTimestamp = new SimpleDateFormat("yyyyMMddHHmmss")
+                    .format(new Date(timestamp * 1000));
             String nonce = formattedTimestamp; // Use formatted timestamp as nonce
 
-            String dataToSign = payload + timestamp + nonce + privateKey;
             // 4. 对请求进行签名
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
             // 5. 发送 HTTP POST 请求
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
             headers.put("X-Authentication-Method", "SHA256WithRSA");
-            headers.put("X-Authentication-KeyId", keyId); // 使用支付厂家提供的 Key ID
+            headers.put("X-Authentication-KeyId", fomoPayProperties.getKeyId()); // 使用支付厂家提供的 Key ID
             headers.put("X-Authentication-Nonce", nonce); // 随机数
             headers.put("X-Authentication-Timestamp", String.valueOf(timestamp)); // 时间戳
             headers.put("X-Authentication-Sign", signature); // 签名
             headers.put("Content-Type", "application/json");
             // 5. 发送 HTTP POST 请求并获取完整响应
-            String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
+            String response = fomoPayUtil.sendHttpPostRequest(fomoPayProperties.getApiUrl(), payload, headers);
             return response;
         } catch (Exception e) {
             e.printStackTrace();
@@ -445,6 +434,7 @@ public class FomoPayService {
      * @param stan 系统跟踪号
      * @return 作废处理结果
      */
+    @Override
     public String voidTransaction(int stan) {
         try {
             // 1. 加载私钥
@@ -465,8 +455,8 @@ public class FomoPayService {
 
             requestBody.put("7", transmissionDateTime); // 传输日期和时间
             requestBody.put("11", String.format("%06d", stan)); // 系统跟踪审计号
-            requestBody.put("41", tid); // 终端ID
-            requestBody.put("42", mid); // 商户ID
+            requestBody.put("41", fomoPayProperties.getTid()); // 终端ID
+            requestBody.put("42", fomoPayProperties.getMid()); // 商户ID
 
             String payload = objectMapper.writeValueAsString(requestBody);
 
@@ -479,14 +469,14 @@ public class FomoPayService {
             Map<String, String> headers = new HashMap<>();
             headers.put("X-Authentication-Version", "1.1");
             headers.put("X-Authentication-Method", "SHA256WithRSA");
-            headers.put("X-Authentication-KeyId", keyId);
+            headers.put("X-Authentication-KeyId", fomoPayProperties.getKeyId());
             headers.put("X-Authentication-Nonce", nonce);
             headers.put("X-Authentication-Timestamp", String.valueOf(timestamp));
             headers.put("X-Authentication-Sign", signature);
             headers.put("Content-Type", "application/json");
 
             // 5. 发送请求
-            String response = fomoPayUtil.sendHttpPostRequest(apiUrl, payload, headers);
+            String response = fomoPayUtil.sendHttpPostRequest(fomoPayProperties.getApiUrl(), payload, headers);
 
             // 6. 处理响应
             if (response == null || response.isEmpty()) {
