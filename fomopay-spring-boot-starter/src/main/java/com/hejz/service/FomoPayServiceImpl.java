@@ -76,7 +76,7 @@ public class FomoPayServiceImpl implements FomoPayService {
             }
 
             // 2. 加载私钥
-            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey(fomoPayProperties.getPrivateKeyPath());
             if (privateKey == null) {
                 throw new RuntimeException("Failed to load private key");
             }
@@ -166,7 +166,7 @@ public class FomoPayServiceImpl implements FomoPayService {
     public String refund(int stan, long amount, String retrievalRef, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
-            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey(fomoPayProperties.getPrivateKeyPath());
 
             // 2. 构建退款请求
             ObjectMapper objectMapper = new ObjectMapper();
@@ -266,8 +266,8 @@ public class FomoPayServiceImpl implements FomoPayService {
     public String sale(int stan, long amount, String description) {
         try {
             // 1. 从 static 目录加载私钥和公钥
-            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
-            PublicKey publicKey = fomoPayUtil.loadPublicKey("public_key.pem");
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey(fomoPayProperties.getPrivateKeyPath());
+            PublicKey publicKey = fomoPayUtil.loadPublicKey(fomoPayProperties.getPublicKeyPath());
 
             // 2. 使用 Jackson 构造 JSON 请求体
             ObjectMapper objectMapper = new ObjectMapper();
@@ -380,7 +380,7 @@ public class FomoPayServiceImpl implements FomoPayService {
     public String batchSubmit() {
         try {
             // 1. 从 static 目录加载私钥和公钥
-            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey(fomoPayProperties.getPrivateKeyPath());
 
             // 2. 使用 Jackson 构造 JSON 请求体
             ObjectMapper objectMapper = new ObjectMapper();
@@ -439,7 +439,7 @@ public class FomoPayServiceImpl implements FomoPayService {
     public String voidTransaction(int stan) {
         try {
             // 1. 加载私钥
-            PrivateKey privateKey = fomoPayUtil.loadPrivateKey("private_key.pem");
+            PrivateKey privateKey = fomoPayUtil.loadPrivateKey(fomoPayProperties.getPrivateKeyPath());
 
             // 2. 构建作废请求
             ObjectMapper objectMapper = new ObjectMapper();

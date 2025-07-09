@@ -12,6 +12,8 @@ public class FomoPayProperties {
     private String keyId;
     private String tid;
     private String mid;
+    private String privateKeyPath = "private_key.pem";  // 默认值
+    private String publicKeyPath = "public_key.pem";    // 默认值
     
     // 手动添加getter方法以确保编译通过
     public String getApiUrl() {
@@ -30,6 +32,14 @@ public class FomoPayProperties {
         return mid;
     }
     
+    public String getPrivateKeyPath() {
+        return privateKeyPath;
+    }
+    
+    public String getPublicKeyPath() {
+        return publicKeyPath;
+    }
+    
     // 手动添加setter方法
     public void setApiUrl(String apiUrl) {
         this.apiUrl = apiUrl;
@@ -45,5 +55,13 @@ public class FomoPayProperties {
     
     public void setMid(String mid) {
         this.mid = mid;
+    }
+    
+    public void setPrivateKeyPath(String privateKeyPath) {
+        this.privateKeyPath = privateKeyPath;
+    }
+    
+    public void setPublicKeyPath(String publicKeyPath) {
+        this.publicKeyPath = publicKeyPath;
     }
 }
