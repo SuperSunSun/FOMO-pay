@@ -1,6 +1,0 @@
-com\hejz\service\FomoPayServiceImpl.class
-com\hejz\autoconfigure\FomoPayProperties.class
-com\hejz\autoconfigure\WebInit.class
-com\hejz\util\FomoPayUtil.class
-com\hejz\autoconfigure\FomoPayAutoConfiguration.class
-com\hejz\service\FomoPayService.class
