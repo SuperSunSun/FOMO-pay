@@ -12,8 +12,6 @@ package com.hejz.util;
  * </ul>
  */
 
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
-import org.bouncycastle.asn1.pkcs.RSAPrivateKey;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.springframework.core.io.ClassPathResource;
@@ -65,17 +63,17 @@ public class FomoPayUtil {
      */
     public PrivateKey loadPrivateKey(String filename) throws Exception {
         try (InputStream inputStream = getResourceFile(filename);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            PEMParser pemParser = new PEMParser(reader);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+             PEMParser pemParser = new PEMParser(reader)) {
             JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
             Object object = pemParser.readObject();
 
-            if (object instanceof RSAPrivateKey) {
-                // 处理传统的 RSA 格式私钥（PKCS#1）
-                return converter.getPrivateKey(PrivateKeyInfo.getInstance( object));
-            } else if (object instanceof org.bouncycastle.openssl.PEMKeyPair) {
+            if (object instanceof org.bouncycastle.openssl.PEMKeyPair) {
                 // 处理 PEM 格式的密钥对
                 return converter.getPrivateKey(((org.bouncycastle.openssl.PEMKeyPair) object).getPrivateKeyInfo());
+            } else if (object instanceof org.bouncycastle.asn1.pkcs.PrivateKeyInfo) {
+                // 处理 PKCS#8 格式的私钥
+                return converter.getPrivateKey((org.bouncycastle.asn1.pkcs.PrivateKeyInfo) object);
             } else {
                 throw new IllegalArgumentException("Unsupported private key format");
             }
@@ -104,8 +102,8 @@ public class FomoPayUtil {
      */
     public PublicKey loadPublicKey(String filename) throws Exception {
         try (InputStream inputStream = getResourceFile(filename);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            PEMParser pemParser = new PEMParser(reader);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+             PEMParser pemParser = new PEMParser(reader)) {
             JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
             Object object = pemParser.readObject();
 
@@ -113,7 +111,7 @@ public class FomoPayUtil {
                 // 处理 PEM 格式的密钥对
                 return converter.getPublicKey(((org.bouncycastle.openssl.PEMKeyPair) object).getPublicKeyInfo());
             } else if (object instanceof org.bouncycastle.asn1.x509.SubjectPublicKeyInfo) {
-                // 处理公钥
+                // 处理 X.509 格式的公钥
                 return converter.getPublicKey((org.bouncycastle.asn1.x509.SubjectPublicKeyInfo) object);
             } else {
                 throw new IllegalArgumentException("Unsupported public key format");
@@ -252,54 +250,51 @@ public class FomoPayUtil {
         
         try {
             // Validate URL format
-            new java.net.URI(url);
+            java.net.URI uri = new java.net.URI(url);
+            // 使用uri.toURL()替代new URL(String)
+            javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier(
+                (hostname, session) -> hostname.equals("pos.fomopay.net")
+            );
+            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) uri.toURL().openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(5000); // 5 seconds
+            connection.setReadTimeout(10000); // 10 seconds
+
+            // 设置请求头
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                connection.setRequestProperty(entry.getKey(), entry.getValue());
+            }
+
+            // 发送请求体
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = payload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            // 获取响应状态码
+            int responseCode = connection.getResponseCode();
+            
+            // 读取响应
+            try (InputStream inputStream = responseCode < 400 ? 
+                    connection.getInputStream() : connection.getErrorStream();
+                 BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                
+                StringBuilder response = new StringBuilder();
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) {
+                    response.append(responseLine.trim());
+                }
+                
+                if (responseCode >= 400) {
+                    throw new IOException("HTTP Error " + responseCode + ": " + response);
+                }
+                return response.toString();
+            } finally {
+                connection.disconnect();
+            }
         } catch (java.net.URISyntaxException e) {
             throw new IllegalArgumentException("Invalid URL format: " + url, e);
-        }
-
-        // Configure SSL/TLS
-        javax.net.ssl.HttpsURLConnection.setDefaultHostnameVerifier(
-            (hostname, session) -> hostname.equals("pos.fomopay.net")
-        );
-
-        // Create connection with timeouts
-        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setDoOutput(true);
-        connection.setConnectTimeout(5000); // 5 seconds
-        connection.setReadTimeout(10000); // 10 seconds
-
-        // 设置请求头
-        for (Map.Entry<String, String> entry : headers.entrySet()) {
-            connection.setRequestProperty(entry.getKey(), entry.getValue());
-        }
-
-        // 发送请求体
-        try (OutputStream os = connection.getOutputStream()) {
-            byte[] input = payload.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-        }
-
-        // 获取响应状态码
-        int responseCode = connection.getResponseCode();
-        
-        // 读取响应
-        try (InputStream inputStream = responseCode < 400 ? 
-                connection.getInputStream() : connection.getErrorStream();
-             BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            
-            StringBuilder response = new StringBuilder();
-            String responseLine;
-            while ((responseLine = br.readLine()) != null) {
-                response.append(responseLine.trim());
-            }
-            
-            if (responseCode >= 400) {
-                throw new IOException("HTTP Error " + responseCode + ": " + response);
-            }
-            return response.toString();
-        } finally {
-            connection.disconnect();
         }
     }
     /**

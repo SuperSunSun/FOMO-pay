@@ -298,7 +298,8 @@ public class FomoPayServiceImpl implements FomoPayService {
                     .format(new Date(timestamp * 1000));
             String nonce = formattedTimestamp; // Use formatted timestamp as nonce
 
-            String dataToSign = payload + timestamp + nonce;
+            //String dataToSign = payload + timestamp + nonce;
+            
             // 4. 对请求进行签名
             String signature = fomoPayUtil.signRequest(payload, timestamp, nonce, privateKey);
 

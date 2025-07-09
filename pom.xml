@@ -22,6 +22,7 @@
         <developer/>
     </developers>
     <modules>
+        <module>fomopay-spring-boot-starter</module>
         <module>fomopay-demo</module>
     </modules>
     <scm>
@@ -31,7 +32,7 @@
         <url/>
     </scm>
     <properties>
-        <java.version>8</java.version>
+        <java.version>11</java.version>
     </properties>
     <dependencies>
         <dependency>
@@ -81,12 +82,7 @@
             <artifactId>httpclient</artifactId>
             <version>4.5.13</version>
         </dependency>
-        <dependency>
-            <groupId>com.hejz</groupId>
-            <artifactId>fomopay-spring-boot-starter</artifactId>
-            <version>1.0.0</version>
-            <scope>compile</scope>
-        </dependency>
+
     </dependencies>
 
     <build>
